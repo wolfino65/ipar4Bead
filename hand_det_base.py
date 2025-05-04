@@ -8,35 +8,34 @@ mpHands = mp.solutions.hands
 hands = mpHands.Hands( 
     static_image_mode=False, 
     model_complexity=1, 
-    min_detection_confidence=0.2, 
-    min_tracking_confidence=0.2, 
+    min_detection_confidence=0.5, 
+    min_tracking_confidence=0.4, 
     max_num_hands=2) 
-
+mp_drawing = mp.solutions.drawing_utils
 
 cap = cv2.VideoCapture(0) 
 
 while True: 
-
     success, img = cap.read() 
-
-
     img = cv2.flip(img, 1) 
-
-
     imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
-
-
     results = hands.process(imgRGB) 
-
-
     if results.multi_hand_landmarks: 
-
-
+        fingertip_indexes = [4, 8, 12, 16, 20,0]
+        for hand_landmarks in results.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(
+                img, 
+                hand_landmarks, 
+                mpHands.HAND_CONNECTIONS,
+                mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=1),
+                mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1))
+            for i in fingertip_indexes:
+                cv2.circle(img, (int(hand_landmarks.landmark[i].x * img.shape[1]), int(hand_landmarks.landmark[i].y * img.shape[0])), 10, (255, 0, 0), -1)
+        
+        
         if len(results.multi_handedness) == 2: 
  
-            cv2.putText(img, 'Both Hands', (250, 50), 
-                        cv2.FONT_HERSHEY_COMPLEX, 
-                        0.9, (0, 255, 0), 2) 
+            pass
 
         else: 
             for i in results.multi_handedness: 
@@ -48,18 +47,15 @@ while True:
 
                     if label == 'Left': 
                         
-                        cv2.putText(img, label + ' Hand', 
-                                    (20, 50), 
-                                    cv2.FONT_HERSHEY_COMPLEX, 
-                                    0.9, (0, 255, 0), 2) 
+                        pass
 
                     elif label == 'Right': 
                         
-                        cv2.putText(img, label + ' Hand', 
-                                    (460, 50), 
-                                    cv2.FONT_HERSHEY_COMPLEX, 
-                                    0.9, (0, 255, 0), 2) 
-
+                        pass
+    height, width,_ = img.shape
+    height*=1.5
+    width*=1.5
+    img=cv2.resize(img,(int(width),int(height)))
     cv2.imshow('Image', img) 
     if cv2.waitKey(1) & 0xff == ord('q'): 
         break
