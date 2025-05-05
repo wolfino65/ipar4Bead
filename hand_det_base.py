@@ -1,7 +1,10 @@
 import cv2 
 import mediapipe as mp
 from google.protobuf.json_format import MessageToDict
-
+import mouse
+import os
+import ctypes
+draw_skeleton = True
 class LandmarkValues():
     def __init__(self, distance=None,l1=None,l2=None,hand=None):
         self.distance = distance
@@ -45,21 +48,8 @@ def get_values_for_hand(landmarks,hand):
     for i in fingertip_indexes:
         temp_thumb=LandmarkValues(hand=hand)
         temp_wrist=LandmarkValues(hand=hand)
-        landmark_x = int(landmarks[i].x * img.shape[1])
-        landmark_y = int(landmarks[i].y * img.shape[0])
-        wrist_x = int(landmarks[0].x * img.shape[1])
-        wrist_y = int(landmarks[0].y * img.shape[0])
-        thumb_x = int(landmarks[4].x * img.shape[1])
-        thumb_y = int(landmarks[4].y * img.shape[0])
-        cv2.circle(img, (landmark_x, landmark_y), 10, (255, 0, 0), 1)
-        cv2.line(img, (landmark_x, landmark_y), (wrist_x, wrist_y), (0, 255, 0), 1)
-        cv2.line(img, (landmark_x, landmark_y), (thumb_x, thumb_y), (0, 255, 0), 1) #paths betweeen key landmarks
         thumb_dist=get_invariant_ratio(landmarks, i, thumb_index) * 100
         wrist_dist=get_invariant_ratio(landmarks, i, wrist_index) * 100
-        thumb_midpoint=((thumb_x + landmark_x) // 2, (thumb_y + landmark_y) // 2)
-        cv2.putText(img, str(int(thumb_dist)), thumb_midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-        wrist_midpoint=((wrist_x + landmark_x) // 2, (wrist_y + landmark_y) // 2)
-        cv2.putText(img, str(int(wrist_dist)), wrist_midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         temp_thumb.distance=thumb_dist
         temp_wrist.distance=wrist_dist
         temp_thumb.l1="thumb"
@@ -68,10 +58,22 @@ def get_values_for_hand(landmarks,hand):
         temp_wrist.l2=i
         temp_list.append(temp_thumb)
         temp_list.append(temp_wrist)
-        
+        if draw_skeleton:
+            landmark_x = int(landmarks[i].x * img.shape[1])
+            landmark_y = int(landmarks[i].y * img.shape[0])
+            wrist_x = int(landmarks[0].x * img.shape[1])
+            wrist_y = int(landmarks[0].y * img.shape[0])
+            thumb_x = int(landmarks[4].x * img.shape[1])
+            thumb_y = int(landmarks[4].y * img.shape[0])
+            cv2.circle(img, (landmark_x, landmark_y), 10, (255, 0, 0), 1)
+            cv2.line(img, (landmark_x, landmark_y), (wrist_x, wrist_y), (0, 255, 0), 1)
+            cv2.line(img, (landmark_x, landmark_y), (thumb_x, thumb_y), (0, 255, 0), 1) #paths betweeen key landmarks
+            thumb_midpoint=((thumb_x + landmark_x) // 2, (thumb_y + landmark_y) // 2)
+            cv2.putText(img, str(int(thumb_dist)), thumb_midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+            wrist_midpoint=((wrist_x + landmark_x) // 2, (wrist_y + landmark_y) // 2)
+            cv2.putText(img, str(int(wrist_dist)), wrist_midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
     return temp_list
-
-
+last_known_hand_pos=(None,None)
 while True:     
     values=[]
     success, img = cap.read() 
@@ -94,8 +96,54 @@ while True:
                     if label == 'Right':
                         pass 
                         values+=get_values_for_hand(results.multi_hand_landmarks[1].landmark,label)
-    """for i in values:
-        print(i)"""
+    #implementing usecases
+    rtp=None
+    rwp=None
+    rwm=None
+    rwpo=None
+    rwr=None
+    rtm=None
+    clicked_flag=False
+    for i in values:
+        if i.hand=='Right' and i.l1=='thumb' and i.l2==8:
+            rtp=i.distance
+        if i.hand=='Right' and i.l1=='wrist' and i.l2==20:
+            rwp=i.distance
+        if i.hand=='Right' and i.l1=='wrist' and i.l2==12:
+            rwm=i.distance
+        if i.hand=='Right' and i.l1=='wrist' and i.l2==8:
+            rwpo=i.distance
+        if i.hand=='Right' and i.l1=='wrist' and i.l2==16:
+            rwr=i.distance
+        if i.hand=='Right' and i.l1=='thumb' and i.l2==12:
+            rtm=i.distance
+            
+    try:
+        mouse_active = rwp >150 and rwr < 100 
+        hand_x_w, hand_y_w = int(results.multi_hand_landmarks[0].landmark[0].x * img.shape[1]), int(results.multi_hand_landmarks[0].landmark[0].y * img.shape[0])
+        if mouse_active:
+            if last_known_hand_pos[0] is None or last_known_hand_pos[1] is None:
+                last_known_hand_pos = (int(results.multi_hand_landmarks[0].landmark[0].x * img.shape[1]), int(results.multi_hand_landmarks[0].landmark[0].y * img.shape[0]))
+            hand_x = int((hand_x_w-last_known_hand_pos[0])*2)
+            hand_y = int((hand_y_w-last_known_hand_pos[1])*2)
+            mouse.move(hand_x,hand_y,absolute=False)
+        if rtp <30 and mouse_active:
+            mouse.click('left')
+            clicked_flag=True
+        if rtp > 30 and clicked_flag:
+            clicked_flag=False
+        if rwm > 90 and rwp < 90 and rwpo < 90 and rwr < 90:
+            print("fu")
+        if rtm<30 and mouse_active:
+            mouse.click('right')
+            clicked_flag=True
+        if rtm > 30 and clicked_flag:
+            clicked_flag=False
+        last_known_hand_pos = (hand_x_w, hand_y_w)
+    except:
+        print("Error in hand control interpretation")
+        pass
+    
     height, width,_ = img.shape
     height*=1.5
     width*=1.5
