@@ -3,7 +3,7 @@ import mediapipe as mp
 from google.protobuf.json_format import MessageToDict
 import mouse
 import os
-import ctypes
+import keyboard
 draw_skeleton = True
 class LandmarkValues():
     def __init__(self, distance=None,l1=None,l2=None,hand=None):
@@ -103,7 +103,9 @@ while True:
     rwpo=None
     rwr=None
     rtm=None
+    rwt=None
     clicked_flag=False
+    back_forward_flag=False
     for i in values:
         if i.hand=='Right' and i.l1=='thumb' and i.l2==8:
             rtp=i.distance
@@ -117,7 +119,8 @@ while True:
             rwr=i.distance
         if i.hand=='Right' and i.l1=='thumb' and i.l2==12:
             rtm=i.distance
-            
+        if i.hand=='Right' and i.l1=='wrist' and i.l2==4:
+            rwt=i.distance  
     try:
         mouse_active = rwp >150 and rwr < 100 
         hand_x_w, hand_y_w = int(results.multi_hand_landmarks[0].landmark[0].x * img.shape[1]), int(results.multi_hand_landmarks[0].landmark[0].y * img.shape[0])
@@ -134,14 +137,29 @@ while True:
             clicked_flag=False
         if rwm > 90 and rwp < 90 and rwpo < 90 and rwr < 90:
             print("fu")
+            os.system('shutdown -s')
         if rtm<30 and mouse_active:
             mouse.click('right')
             clicked_flag=True
         if rtm > 30 and clicked_flag:
             clicked_flag=False
+        if rwm > 80 and rwpo >70 and not mouse_active and rwt<90:
+            y = int((last_known_hand_pos[1] - int(results.multi_hand_landmarks[0].landmark[0].y * img.shape[0]))*0.5)
+            mouse.wheel(y)
+        if rwm > 80 and rwpo >70 and not mouse_active and rwt<90 and not back_forward_flag:
+            x = int((last_known_hand_pos[0] - int(results.multi_hand_landmarks[0].landmark[0].x * img.shape[1])))
+            print(x)
+            if x > 30 and x < 70:
+                keyboard.press_and_release('alt+left')
+                back_forward_flag=True
+            if x > -50 and x < -20:
+                keyboard.press_and_release('alt+right')
+                back_forward_flag=True
+        if rwm < 80 and rwpo <70 and back_forward_flag:
+            back_forward_flag=False
         last_known_hand_pos = (hand_x_w, hand_y_w)
     except:
-        print("Error in hand control interpretation")
+        #print("Error in hand control interpretation")
         pass
     
     height, width,_ = img.shape
