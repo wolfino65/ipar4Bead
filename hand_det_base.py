@@ -42,7 +42,7 @@ def get_invariant_ratio(landmarks, a_idx, b_idx, ref1_idx=0, ref2_idx=9):
     
     return dist_ab / (dist_ref + 1e-6)  # Avoid division by zero
 
-fingertip_indexes = [4, 8, 12, 16, 20] #fingertips and wrist
+fingertip_indexes = [4, 8, 12, 16, 20] #fingertips
 wrist_index=0
 thumb_index=4
 
@@ -179,7 +179,6 @@ while True:
         last_known_hand_pos = (hand_x_w, hand_y_w)
     except Exception as e:
         print(f"Error in hand control interpretation ({e.args})")
-        pass
     
     height, width,_ = img.shape
     height*=1.5
