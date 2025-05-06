@@ -4,6 +4,9 @@ from google.protobuf.json_format import MessageToDict
 import mouse
 import os
 import keyboard
+from ctypes import POINTER, cast
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 draw_skeleton = True
 class LandmarkValues():
     def __init__(self, distance=None,l1=None,l2=None,hand=None):
@@ -20,8 +23,8 @@ mpHands = mp.solutions.hands
 hands = mpHands.Hands( 
     static_image_mode=False, 
     model_complexity=1, 
-    min_detection_confidence=0.5, 
-    min_tracking_confidence=0.4, 
+    min_detection_confidence=0.7, 
+    min_tracking_confidence=0.6, 
     max_num_hands=2) 
 mp_drawing = mp.solutions.drawing_utils
 
@@ -74,6 +77,13 @@ def get_values_for_hand(landmarks,hand):
             cv2.putText(img, str(int(wrist_dist)), wrist_midpoint, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
     return temp_list
 last_known_hand_pos=(None,None)
+devices = AudioUtilities.GetSpeakers()
+interface = devices.Activate(
+    IAudioEndpointVolume._iid_,
+    CLSCTX_ALL,
+    None,
+)
+volume = cast(interface, POINTER(IAudioEndpointVolume))
 while True:     
     values=[]
     success, img = cap.read() 
@@ -104,6 +114,8 @@ while True:
     rwr=None
     rtm=None
     rwt=None
+    ltpo=None
+    lwp=None
     clicked_flag=False
     back_forward_flag=False
     for i in values:
@@ -120,7 +132,12 @@ while True:
         if i.hand=='Right' and i.l1=='thumb' and i.l2==12:
             rtm=i.distance
         if i.hand=='Right' and i.l1=='wrist' and i.l2==4:
-            rwt=i.distance  
+            rwt=i.distance
+        if i.hand=='Left' and i.l1=='thumb' and i.l2==8:
+            ltpo=i.distance
+            print(ltpo)
+        if i.hand=='Left' and i.l1=='wrist' and i.l2==20:
+            lwp=i.distance  
     try:
         mouse_active = rwp >150 and rwr < 100 
         hand_x_w, hand_y_w = int(results.multi_hand_landmarks[0].landmark[0].x * img.shape[1]), int(results.multi_hand_landmarks[0].landmark[0].y * img.shape[0])
@@ -129,14 +146,13 @@ while True:
                 last_known_hand_pos = (int(results.multi_hand_landmarks[0].landmark[0].x * img.shape[1]), int(results.multi_hand_landmarks[0].landmark[0].y * img.shape[0]))
             hand_x = int((hand_x_w-last_known_hand_pos[0])*2)
             hand_y = int((hand_y_w-last_known_hand_pos[1])*2)
-            mouse.move(hand_x,hand_y,absolute=False)
+            mouse.move(hand_x,hand_y,absolute=False,duration=0.001)
         if rtp <30 and mouse_active:
             mouse.click('left')
             clicked_flag=True
         if rtp > 30 and clicked_flag:
             clicked_flag=False
         if rwm > 90 and rwp < 90 and rwpo < 90 and rwr < 90:
-            print("fu")
             os.system('shutdown -s')
         if rtm<30 and mouse_active:
             mouse.click('right')
@@ -157,9 +173,12 @@ while True:
                 back_forward_flag=True
         if rwm < 80 and rwpo <70 and back_forward_flag:
             back_forward_flag=False
+        """if lwp >100:
+            
+            volume.SetMasterVolumeLevel((-65 + (ltpo - 20) * (0 - -65) / (150 - 20)), None)"""
         last_known_hand_pos = (hand_x_w, hand_y_w)
-    except:
-        #print("Error in hand control interpretation")
+    except Exception as e:
+        print(f"Error in hand control interpretation ({e.args})")
         pass
     
     height, width,_ = img.shape
