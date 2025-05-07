@@ -103,8 +103,7 @@ while True:
                 elif len(results.multi_hand_landmarks) == 2:
                     if label == 'Left': 
                         values+=get_values_for_hand(results.multi_hand_landmarks[0].landmark,label)    
-                    if label == 'Right':
-                        pass 
+                    if label == 'Right': 
                         values+=get_values_for_hand(results.multi_hand_landmarks[1].landmark,label)
     #implementing usecases
     rtp=None
@@ -135,7 +134,6 @@ while True:
             rwt=i.distance
         if i.hand=='Left' and i.l1=='thumb' and i.l2==8:
             ltpo=i.distance
-            print(ltpo)
         if i.hand=='Left' and i.l1=='wrist' and i.l2==20:
             lwp=i.distance  
     try:
@@ -173,8 +171,7 @@ while True:
                 back_forward_flag=True
         if rwm < 80 and rwpo <70 and back_forward_flag:
             back_forward_flag=False
-        """if lwp >100:
-            
+        """if lwp >100:    
             volume.SetMasterVolumeLevel((-65 + (ltpo - 20) * (0 - -65) / (150 - 20)), None)"""
         last_known_hand_pos = (hand_x_w, hand_y_w)
     except Exception as e:
